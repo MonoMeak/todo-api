@@ -1,0 +1,115 @@
+LESSONS LEARNED - TODO API PROJECT
+
+Project stack:
+- Express + TypeScript
+- PostgreSQL + TypeORM
+- Zod for request validation
+- JWT-based auth (custom implementation)
+
+1) AUTHENTICATION
+- Implemented register/login flow with hashed passwords using bcrypt.
+- Access token is returned in response body and used with `Authorization: Bearer <token>`.
+- Refresh token is stored as HTTP-only cookie for better security against JavaScript access.
+- Refresh tokens are rotated on refresh and revoked on logout.
+- Stored refresh token hash in database instead of raw token, which is a safer pattern.
+
+2) MIDDLEWARE
+- Built `requireAuth` middleware to:
+  - Read bearer token
+  - Verify JWT signature and expiry
+  - Load authenticated user from DB
+  - Attach `authUser` and token payload to `req`
+- Built reusable validation middleware for:
+  - `validateBody`
+  - `validateParams`
+  - `validateQuery`
+- Standardized validation error response shape from Zod errors.
+
+3) SERVICE LAYER
+- Separated business logic from routes into services:
+  - `AuthService` for user and token operations
+  - `TaskService` for task CRUD and pagination
+- Benefits learned:
+  - Cleaner routes
+  - Better testability
+  - Easier maintenance and reuse
+
+4) ROUTER (CONTROLLER) LAYER
+- Implemented route handlers for auth and tasks.
+- Controllers focus on request/response and call services for business logic.
+- Current mounted modules:
+  - `/api/auth`
+  - `/api/tasks`
+- `/users` route module was removed from active mounting, consolidating user operations into auth flow.
+
+5) BODY VALIDATION WITH ZOD
+- Defined strict schemas for:
+  - Create user
+  - Login
+  - Create task
+  - Update task
+- Learned to enforce:
+  - Field format (email)
+  - Type checks (boolean)
+  - Input limits (min/max length)
+- Validation now happens before business logic runs.
+
+6) RESTFUL API DESIGN
+- Used REST conventions:
+  - `POST /api/auth/register`, `POST /api/auth/login`
+  - `GET /api/tasks`
+  - `POST /api/tasks`
+  - `PATCH /api/tasks/:id`
+  - `DELETE /api/tasks/:id`
+- Used proper status codes in most cases:
+  - 201 for create
+  - 401 for unauthorized
+  - 409 for conflict
+  - 500 for server errors
+
+7) ORM WITH TYPEORM
+- Used entities and repositories to map database tables and run CRUD operations.
+- Configured a PostgreSQL data source with environment variables.
+- Used `findAndCount`, `findOne`, `update`, `delete`, and query builder patterns.
+- Learned how TypeORM simplifies table mapping and relation handling.
+
+8) RELATIONSHIP MODELING
+- Implemented entity relationships:
+  - User (1) -> (many) Task
+  - User (1) -> (many) RefreshToken
+- Used foreign key `user_id` in tasks and refresh tokens.
+- Added `onDelete: "CASCADE"` to clean related records when a user is deleted.
+
+9) PAGINATION FOR STANDARD API
+- Implemented query-based pagination using:
+  - `current_page`
+  - `limit`
+- Built a response format with metadata:
+  - `total_pages`
+  - `current_page`
+  - `limit`
+  - `is_prev`
+  - `is_next`
+- Learned to use `skip` and `take` for paginated SQL queries.
+
+10) IMPORTANT PRACTICAL TAKEAWAYS
+- Security:
+  - Always set a strong `JWT_SECRET` in environment variables.
+  - Avoid storing sensitive secrets directly in source-controlled files.
+- Architecture:
+  - Keep controllers thin and move logic into services.
+  - Use middleware for cross-cutting concerns (auth, validation).
+- API quality:
+  - Keep response format consistent.
+  - Return clear error messages for client-side debugging.
+
+11) NEXT IMPROVEMENTS (RECOMMENDED)
+- Fix pagination total pages logic (`Math.min` should be `Math.max` for at least 1 page).
+- Add centralized global error handler middleware.
+- Add request query validation for pagination parameters.
+- Add unit/integration tests for auth and task modules.
+- Add migration workflow instead of relying only on `synchronize: true`.
+- Add API docs (Swagger/OpenAPI) for easier client integration.
+
+Summary:
+This project demonstrates solid full-stack backend fundamentals: authentication, middleware design, service-based architecture, validation, REST design, ORM usage, relationships, and pagination. It is a strong base for scaling into production-grade patterns.

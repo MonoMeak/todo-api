@@ -8,6 +8,7 @@ import {
   JoinColumn,
 } from "typeorm";
 import { User } from "./User";
+import { Category } from "./Category";
 
 @Entity("tasks")
 export class Task {
@@ -16,6 +17,9 @@ export class Task {
 
   @Column()
   user_id: string;
+
+  @Column({ nullable: true })
+  category_id: string | null;
 
   @Column()
   text: string;
@@ -35,4 +39,13 @@ export class Task {
   @ManyToOne(() => User, (user) => user.tasks, { onDelete: "CASCADE" })
   @JoinColumn({ name: "user_id" })
   user: User;
+
+  // with category
+
+  @ManyToOne(() => Category, (category) => category.tasks, {
+    nullable: true,
+    onDelete: "SET NULL",
+  })
+  @JoinColumn({ name: "category_id" })
+  category: Category | null;
 }

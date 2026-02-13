@@ -6,6 +6,7 @@ export const createTaskSchema = z.object({
     .string()
     .min(1, "Task text cannot be empty")
     .max(100, "Task text must be less than 100   characters"),
+  category_id: z.string().optional(),
 });
 
 export const updateTaskSchema = z.object({
@@ -15,9 +16,8 @@ export const updateTaskSchema = z.object({
     .max(100, "Task text must be less than 100 characters")
     .optional(),
   is_completed: z.boolean().optional(),
+  category_id: z.string().nullable().optional(),
 });
-
-
 
 export type CreateTaskDto = z.infer<typeof createTaskSchema>;
 export type UpdateTaskDto = z.infer<typeof updateTaskSchema>;
@@ -25,6 +25,7 @@ export type UpdateTaskDto = z.infer<typeof updateTaskSchema>;
 export interface TaskResponseDto {
   id: string;
   user_id: string;
+  category_id: string | null;
   text: string;
   is_completed: boolean;
   completed_at: Date | null;

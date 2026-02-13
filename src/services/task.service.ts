@@ -108,6 +108,7 @@ export class TaskService {
     return {
       id: task.id,
       user_id: task.user_id,
+      category_id: task.category_id || null,
       text: task.text,
       is_completed: task.is_completed,
       completed_at: task.completed_at,

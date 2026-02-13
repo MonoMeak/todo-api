@@ -7,12 +7,12 @@ export const AppDataSource = new DataSource({
   host: process.env.DB_HOST || "localhost",
   port: parseInt(process.env.DB_PORT || "5432"),
   username: process.env.DB_USER || "postgres",
-  password: process.env.DB_PASSWORD || "sokmeak1376",
+  password: process.env.DB_PASSWORD || "postgres",
   database: process.env.DB_NAME || "todo",
-  synchronize: true, // Auto-create tables (disable in production)
+  synchronize: process.env.TYPEORM_SYNCHRONIZE === "true",
   logging: false,
-  dropSchema: false, // Set to true to drop the schema on every application launch (useful for development)
-  entities: ["src/entities/**/*.ts"],
-  migrations: ["src/migrations/**/*.ts"],
+  dropSchema: process.env.TYPEORM_DROP_SCHEMA === "true",
+  entities: [__dirname + "/../entities/*.{ts,js}"],
+  migrations: [__dirname + "/../migrations/*.{ts,js}"],
   subscribers: [],
 });

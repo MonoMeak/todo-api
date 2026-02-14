@@ -2,7 +2,14 @@ import { z } from "zod";
 
 const endDateSchema = z
   .string()
-  .datetime("Invalid end_date format. Expected ISO datetime string");
+  .datetime({
+    offset: true,
+    message: "Invalid end_date format. Expected ISO datetime string",
+  })
+  .refine(
+    (value) => new Date(value).getTime() > Date.now(),
+    "end_date must be in the future",
+  );
 
 export const createTaskSchema = z.object({
   // user_id: z.string().uuid("Invalid user ID format"),
@@ -12,6 +19,7 @@ export const createTaskSchema = z.object({
     .max(100, "Task text must be less than 100   characters"),
   category_id: z.string().optional(),
   end_date: endDateSchema.optional().nullable(),
+  order_number: z.number().int().nonnegative().optional(),
 });
 
 export const updateTaskSchema = z.object({
@@ -23,6 +31,11 @@ export const updateTaskSchema = z.object({
   is_completed: z.boolean().optional(),
   category_id: z.string().nullable().optional(),
   end_date: endDateSchema.optional().nullable(),
+  order_number: z.number().int().nonnegative().optional(),
+});
+
+export const reorderTasksSchema = z.object({
+  task_ids: z.array(z.string().uuid()).min(1),
 });
 
 export type CreateTaskDto = z.infer<typeof createTaskSchema>;
@@ -36,6 +49,7 @@ export interface TaskResponseDto {
   is_completed: boolean;
   completed_at: Date | null;
   end_date: Date | null;
+  order_number: number;
   created_at: Date;
   updated_at: Date;
 }

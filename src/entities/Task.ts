@@ -27,11 +27,14 @@ export class Task {
   @Column({ default: false })
   is_completed: boolean;
 
-  @Column({ nullable: true, type: "timestamp" })
+  @Column({ nullable: true, type: "timestamptz" })
   completed_at: Date | null;
 
-  @Column({ nullable: true, type: "timestamp" })
+  @Column({ nullable: true, type: "timestamptz" })
   end_date: Date | null;
+
+  @Column({ type: "int", default: 0 })
+  order_number: number;
 
   @CreateDateColumn()
   created_at: Date;

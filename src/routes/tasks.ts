@@ -6,7 +6,11 @@ import { TaskService } from "../services/task.service";
 import { requireAuth } from "../middleware/auth.middleware";
 import { ResponseStatus } from "../lib/ResponseStatus";
 import { validateBody } from "../middleware/validate.middleware";
-import { createTaskSchema, updateTaskSchema } from "../schema/task.schema";
+import {
+  createTaskSchema,
+  reorderTasksSchema,
+  updateTaskSchema,
+} from "../schema/task.schema";
 const taskService = new TaskService();
 import { UpdateTaskDto } from "../schema/task.schema";
 
@@ -69,10 +73,47 @@ taskRoutes.post(
           message: error.message,
         });
       }
+      if (error.message === "Invalid end_date") {
+        return res.status(400).json({
+          status: ResponseStatus.FAILED,
+          message: error.message,
+        });
+      }
 
       res.status(500).json({
         status: ResponseStatus.FAILED,
         message: "Failed to create task",
+      });
+    }
+  },
+);
+
+// Remove task
+taskRoutes.post(
+  "/reorder",
+  requireAuth,
+  validateBody(reorderTasksSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const user_id = req.authUser.id;
+      const { task_ids } = req.body as { task_ids: string[] };
+      await taskService.reorderTasks(user_id, task_ids);
+
+      res.status(200).json({
+        status: ResponseStatus.SUCCESS,
+        message: "Tasks reordered",
+      });
+    } catch (error: any) {
+      if (error.message === "Some tasks were not found or not owned by user") {
+        return res.status(400).json({
+          status: ResponseStatus.FAILED,
+          message: error.message,
+        });
+      }
+
+      res.status(500).json({
+        status: ResponseStatus.FAILED,
+        message: "Failed to reorder tasks",
       });
     }
   },
@@ -123,6 +164,12 @@ taskRoutes.patch(
       });
     } catch (error: any) {
       if (error.message === "Category not found or not owned by user") {
+        return res.status(400).json({
+          status: ResponseStatus.FAILED,
+          message: error.message,
+        });
+      }
+      if (error.message === "Invalid end_date") {
         return res.status(400).json({
           status: ResponseStatus.FAILED,
           message: error.message,

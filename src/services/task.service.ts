@@ -6,6 +6,7 @@ import { TaskResponseDto, UpdateTaskDto } from "../schema/task.schema";
 import { CreateTaskDto } from "../schema/task.schema";
 import { DataResponse } from "../lib/DataResponse";
 import { ResponseStatus } from "../lib/ResponseStatus";
+import { In } from "typeorm";
 
 export class TaskService {
   private taskRepository = AppDataSource.getRepository(Task);
@@ -20,9 +21,49 @@ export class TaskService {
     }
 
     const payload = this.normalizeTaskPayload(taskDto);
-    const task = this.taskRepository.create({ ...payload, user_id }); // create a new task instance with the provided data
+    const nextOrderNumber = await this.getNextOrderNumberForUser(user_id);
+    const task = this.taskRepository.create({
+      ...payload,
+      user_id,
+      order_number:
+        taskDto.order_number !== undefined
+          ? taskDto.order_number
+          : nextOrderNumber,
+    }); // create a new task instance with the provided data
     await this.taskRepository.save(task); // save the task to the database
     return this.mapToTaskResponseDto(task); // return the created task as a response DTO
+  }
+
+  async reorderTasks(user_id: string, orderedTaskIds: string[]): Promise<void> {
+    const uniqueTaskIds = Array.from(new Set(orderedTaskIds));
+    if (uniqueTaskIds.length === 0) {
+      return;
+    }
+
+    const existingTasks = await this.taskRepository.find({
+      where: {
+        user_id,
+        id: In(uniqueTaskIds),
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existingTasks.length !== uniqueTaskIds.length) {
+      throw new Error("Some tasks were not found or not owned by user");
+    }
+
+    // reroder task whenever newly created
+    await AppDataSource.transaction(async (manager) => {
+      for (let index = 0; index < uniqueTaskIds.length; index++) {
+        await manager.update(
+          Task,
+          { id: uniqueTaskIds[index], user_id },
+          { order_number: index + 1 },
+        );
+      }
+    });
   }
 
   async updateTask(
@@ -89,6 +130,7 @@ export class TaskService {
     const [tasks, total_items] = await this.taskRepository.findAndCount({
       where: whereClause,
       order: {
+        order_number: "ASC",
         created_at: "DESC",
       },
       skip,
@@ -136,6 +178,7 @@ export class TaskService {
       is_completed: task.is_completed,
       completed_at: task.completed_at,
       end_date: task.end_date,
+      order_number: task.order_number,
       created_at: task.created_at,
       updated_at: task.updated_at,
     };
@@ -154,6 +197,20 @@ export class TaskService {
       ...taskDto,
       end_date: taskDto.end_date ? new Date(taskDto.end_date) : null,
     };
+  }
+
+  private async getNextOrderNumberForUser(user_id: string): Promise<number> {
+    const latestTask = await this.taskRepository.findOne({
+      where: { user_id },
+      order: { order_number: "DESC" },
+      select: { order_number: true },
+    });
+
+    if (!latestTask) {
+      return 1;
+    }
+
+    return latestTask.order_number + 1;
   }
 
   private async ensureCategoryOwnership(user_id: string, category_id: string) {

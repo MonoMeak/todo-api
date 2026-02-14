@@ -19,14 +19,21 @@ taskRoutes.get(
       // from user also need : current_page: default is 1
       // limit: default 10
 
-      const { current_page, limit } = req.query;
+      const { current_page, limit, category_id } = req.query;
+      const page = Number(current_page) || 1;
+      const take = Number(limit) || 10;
+      const categoryId =
+        typeof category_id === "string" && category_id.trim().length > 0
+          ? category_id
+          : undefined;
 
-      console.log(`current page ${current_page} -- limit ${limit}`);
+      console.log(`current page ${page} -- limit ${take}`);
 
       const tasksResponse = await taskService.listTasksByUser(
         req.authUser!.id,
-        Number(current_page),
-        Number(limit),
+        page,
+        take,
+        categoryId,
       );
       // implement pagination and filtering here later
 
@@ -55,8 +62,18 @@ taskRoutes.post(
         status: "success",
         data: newTask,
       });
-    } catch (error) {
-      res.status(500).json({ status: "Failed to create task", message: error });
+    } catch (error: any) {
+      if (error.message === "Category not found or not owned by user") {
+        return res.status(400).json({
+          status: ResponseStatus.FAILED,
+          message: error.message,
+        });
+      }
+
+      res.status(500).json({
+        status: ResponseStatus.FAILED,
+        message: "Failed to create task",
+      });
     }
   },
 );
@@ -104,8 +121,25 @@ taskRoutes.patch(
         status: ResponseStatus.SUCCESS,
         data: updatedTask,
       });
-    } catch (error) {
-      res.status(500).json(error.message);
+    } catch (error: any) {
+      if (error.message === "Category not found or not owned by user") {
+        return res.status(400).json({
+          status: ResponseStatus.FAILED,
+          message: error.message,
+        });
+      }
+
+      if (error.message === "Task not found or not owned by user") {
+        return res.status(404).json({
+          status: ResponseStatus.FAILED,
+          message: error.message,
+        });
+      }
+
+      res.status(500).json({
+        status: ResponseStatus.FAILED,
+        message: "Failed to update task",
+      });
     }
   },
 );

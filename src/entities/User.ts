@@ -8,13 +8,12 @@ import {
 } from "typeorm";
 import { Task } from "./Task";
 import { RefreshToken } from "./RefreshToken";
+import { Category } from "./Category";
 
 @Entity("users")
 export class User {
   @PrimaryGeneratedColumn("uuid")
   id: string;
-  
-  
 
   @Column({ unique: true })
   email: string;
@@ -36,4 +35,7 @@ export class User {
 
   @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
   refreshTokens: RefreshToken[];
+
+  @OneToMany(() => Category, (category) => category.user)
+  categories: Category[];
 }

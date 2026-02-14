@@ -18,7 +18,11 @@ Simple REST API for user authentication and task management with JWT access toke
 - Refresh token rotation with server-side token hash storage
 - Logout endpoint that revokes refresh token
 - Protected task CRUD endpoints per authenticated user
+- Protected category CRUD endpoints per authenticated user
+- Optional task-to-category assignment (`category_id`)
+- Optional task end date (`end_date`)
 - Task listing with pagination metadata
+- Category listing with pagination metadata
 
 ## Project Structure
 
@@ -83,6 +87,10 @@ http://localhost:3000
 - `POST /api/tasks` (requires access token)
 - `PATCH /api/tasks/:id` (requires access token)
 - `DELETE /api/tasks/:id` (requires access token)
+- `GET /api/categories` (requires access token)
+- `POST /api/categories` (requires access token)
+- `PATCH /api/categories/:id` (requires access token)
+- `DELETE /api/categories/:id` (requires access token)
 
 ## Auth Flow
 
@@ -133,12 +141,16 @@ Rules:
 
 ```json
 {
-  "text": "Buy milk"
+  "text": "Buy milk",
+  "category_id": "optional-category-uuid",
+  "end_date": "2026-02-20T00:00:00.000Z"
 }
 ```
 
 Rules:
 - `text`: 1-100 chars
+- `category_id`: optional string
+- `end_date`: optional, nullable ISO datetime string
 
 ### Update Task
 
@@ -147,17 +159,56 @@ Rules:
 ```json
 {
   "text": "Buy milk and eggs",
-  "is_completed": true
+  "is_completed": true,
+  "category_id": null,
+  "end_date": null
 }
 ```
 
 Rules:
 - `text`: optional, 1-100 chars
 - `is_completed`: optional boolean
+- `category_id`: optional, nullable string
+- `end_date`: optional, nullable ISO datetime string
+
+### Create Category
+
+`POST /api/categories`
+
+```json
+{
+  "name": "Personal",
+  "icon": "brain",
+  "description": "Personal tasks and reminders"
+}
+```
+
+Rules:
+- `name`: required, 1-50 chars
+- `icon`: optional string
+- `description`: optional, max 120 chars
+
+### Update Category
+
+`PATCH /api/categories/:id`
+
+```json
+{
+  "name": "Work",
+  "icon": "briefcase",
+  "description": "Work-related tasks"
+}
+```
+
+Rules:
+- `name`: required, 1-50 chars
+- `icon`: optional string
+- `description`: optional, max 120 chars
 
 ## Pagination
 
 `GET /api/tasks?current_page=1&limit=10`
+`GET /api/categories?current_page=1&limit=10`
 
 Response shape:
 - `status`
@@ -168,7 +219,6 @@ Response shape:
   - `current_page`
   - `is_prev`
   - `is_next`
-
 ## Database
 
 TypeORM is configured in `src/db/data-source.ts` with:
@@ -178,6 +228,7 @@ TypeORM is configured in `src/db/data-source.ts` with:
 Entities:
 - `users`
 - `tasks`
+- `categories`
 - `refresh_tokens`
 
 ## Notes
@@ -185,4 +236,5 @@ Entities:
 - JWT implementation is custom in `src/utils/jwt.ts` (HMAC SHA-256).
 - Access token TTL: 15 minutes.
 - Refresh token TTL: 7 days.
+- Deleting a category sets related `tasks.category_id` to `null` (`onDelete: SET NULL`).
 - `npm run test:auth` is a smoke test. It expects the backend server to already be running.

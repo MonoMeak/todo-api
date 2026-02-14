@@ -4,6 +4,7 @@ import { AppDataSource } from "./src/db/data-source";
 import cookieParser from "cookie-parser";
 import taskRoutes from "./src/routes/tasks";
 import authRoutes from "./src/routes/auth";
+import categoryRoutes from "./src/routes/category";
 import cors from "cors";
 
 const app = express();
@@ -37,6 +38,7 @@ app.use(loggerMiddleware); // Apply the logger middleware globally
 
 app.use("/api/tasks", taskRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/categories", categoryRoutes);
 
 // the entry point of the application!
 

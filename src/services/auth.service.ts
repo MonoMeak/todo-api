@@ -1,9 +1,14 @@
 import { AppDataSource } from "../db/data-source";
 import { User } from "../entities/User";
 import { RefreshToken } from "../entities/RefreshToken";
-import { CreateUserDto, UserResponseDto } from "../schema/user.schema";
+import {
+  CreateUserDto,
+  UpdatePasswordDto,
+  UpdateUserDto,
+  UserResponseDto,
+} from "../schema/user.schema";
 import * as bcrypt from "bcrypt";
-import { MoreThan } from "typeorm";
+import { MoreThan, Not } from "typeorm";
 import { hashRefreshToken } from "../utils/jwt";
 
 export class AuthService {
@@ -56,6 +61,59 @@ export class AuthService {
 
   async getUserByEmail(email: string): Promise<User | null> {
     return await this.userRepository.findOne({ where: { email } });
+  }
+
+  async updateUserProfile(
+    userId: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<UserResponseDto> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (updateUserDto.email) {
+      const existingUser = await this.userRepository.findOne({
+        where: {
+          email: updateUserDto.email,
+          id: Not(userId),
+        },
+      });
+
+      if (existingUser) {
+        throw new Error("User with this email already exists");
+      }
+
+      user.email = updateUserDto.email;
+    }
+
+    if (updateUserDto.name) {
+      user.name = updateUserDto.name;
+    }
+
+    await this.userRepository.save(user);
+    return this.toUserResponse(user);
+  }
+
+  async updateUserPassword(
+    userId: string,
+    updatePasswordDto: UpdatePasswordDto,
+  ): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      updatePasswordDto.current_password,
+      user.password_hash,
+    );
+    if (!isCurrentPasswordValid) {
+      throw new Error("Current password is incorrect");
+    }
+
+    user.password_hash = await bcrypt.hash(updatePasswordDto.new_password, 10);
+    await this.userRepository.save(user);
   }
 
   async storeRefreshToken(

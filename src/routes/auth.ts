@@ -4,8 +4,12 @@ import {
   AuthResponseDto,
   CreateUserDto,
   LoginUserDto,
+  UpdatePasswordDto,
+  UpdateUserDto,
   createUserSchema,
   loginUserSchema,
+  updatePasswordSchema,
+  updateUserSchema,
 } from "../schema/user.schema";
 import { validateBody } from "../middleware/validate.middleware";
 import { AuthService } from "../services/auth.service";
@@ -111,6 +115,66 @@ authRoutes.post(
 authRoutes.get("/me", requireAuth, async (req: Request, res: Response) => {
   return res.json({ user: req.authUser });
 });
+
+authRoutes.patch(
+  "/me",
+  requireAuth,
+  validateBody(updateUserSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.authUser!.id;
+      const payload: UpdateUserDto = req.body;
+      const updatedUser = await authService.updateUserProfile(userId, payload);
+
+      const access_token = generateAccessToken({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+      });
+
+      const response: AuthResponseDto = {
+        user: updatedUser,
+        access_token,
+      };
+
+      return res.json(response);
+    } catch (error: any) {
+      if (error.message === "User with this email already exists") {
+        return res.status(409).json({ error: error.message });
+      }
+
+      if (error.message === "User not found") {
+        return res.status(404).json({ error: error.message });
+      }
+
+      return res.status(500).json({ error: "Failed to update profile" });
+    }
+  },
+);
+
+authRoutes.patch(
+  "/me/password",
+  requireAuth,
+  validateBody(updatePasswordSchema),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = req.authUser!.id;
+      const payload: UpdatePasswordDto = req.body;
+      await authService.updateUserPassword(userId, payload);
+      return res.json({ success: true });
+    } catch (error: any) {
+      if (error.message === "Current password is incorrect") {
+        return res.status(400).json({ error: error.message });
+      }
+
+      if (error.message === "User not found") {
+        return res.status(404).json({ error: error.message });
+      }
+
+      return res.status(500).json({ error: "Failed to update password" });
+    }
+  },
+);
 
 authRoutes.post("/refresh", async (req: Request, res: Response) => {
   try {

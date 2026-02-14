@@ -1,9 +1,12 @@
-import { literal } from "zod";
 import { AppDataSource } from "../db/data-source";
 import { Category } from "../entities";
-import { CreateCategoryDto } from "../schema/category.schema";
+import {
+  CreateCategoryDto,
+  UpdateCategoryDto,
+} from "../schema/category.schema";
 import { DataResponse } from "../lib/DataResponse";
 import { ResponseStatus } from "../lib/ResponseStatus";
+import { error } from "node:console";
 
 export class CategoryService {
   private categoryRepository = AppDataSource.getRepository(Category);
@@ -16,6 +19,55 @@ export class CategoryService {
     const data = this.categoryRepository.create({ ...category, user_id }); //
     await this.categoryRepository.save(data);
     return this.mapCategoryToResponse(data);
+  }
+  async updateCategory(
+    user_id: string,
+    category_id: string,
+    category: UpdateCategoryDto,
+  ) {
+    // implement business logic here....
+
+    const updated_category = await this.categoryRepository.update(
+      {
+        user_id: user_id,
+        id: category_id,
+      },
+      { ...category },
+    );
+
+    if (updated_category.affected === 0) {
+      throw new Error("Error during udpate category!");
+    }
+
+    return this.getCategoryById(user_id, category_id);
+  }
+
+  async deleteCategory(user_id: string, category_id: string): Promise<String> {
+    // this syntax will handle found / or not found for us
+
+    try {
+      const category = await this.getCategoryById(user_id, category_id);
+      if (category) {
+        await this.categoryRepository.delete({ user_id, id: category_id });
+        return "Category Deleted!";
+      }
+    } catch (error) {
+      throw new Error(error);
+    }
+  }
+
+  async getCategoryById(user_id: string, category_id: string) {
+    const category = await this.categoryRepository.findOne({
+      where: {
+        id: category_id,
+        user_id: user_id,
+      },
+    });
+    if (!category) {
+      throw new Error("Category Not found!");
+    }
+
+    return this.mapCategoryToResponse(category);
   }
 
   // for listing we can follow best practice with pagination

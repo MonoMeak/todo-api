@@ -30,6 +30,9 @@ export class Task {
   @Column({ nullable: true, type: "timestamp" })
   completed_at: Date | null;
 
+  @Column({ nullable: true, type: "timestamp" })
+  end_date: Date | null;
+
   @CreateDateColumn()
   created_at: Date;
 

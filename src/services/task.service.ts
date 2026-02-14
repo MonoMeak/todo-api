@@ -1,5 +1,6 @@
 import { AppDataSource } from "../db/data-source";
 import { Task } from "../entities/Task";
+import { Category } from "../entities/Category";
 
 import { TaskResponseDto, UpdateTaskDto } from "../schema/task.schema";
 import { CreateTaskDto } from "../schema/task.schema";
@@ -8,12 +9,18 @@ import { ResponseStatus } from "../lib/ResponseStatus";
 
 export class TaskService {
   private taskRepository = AppDataSource.getRepository(Task);
+  private categoryRepository = AppDataSource.getRepository(Category);
 
   async createTask(
     user_id: string,
     taskDto: CreateTaskDto,
   ): Promise<TaskResponseDto> {
-    const task = this.taskRepository.create({ ...taskDto, user_id }); // create a new task instance with the provided data
+    if (taskDto.category_id) {
+      await this.ensureCategoryOwnership(user_id, taskDto.category_id);
+    }
+
+    const payload = this.normalizeTaskPayload(taskDto);
+    const task = this.taskRepository.create({ ...payload, user_id }); // create a new task instance with the provided data
     await this.taskRepository.save(task); // save the task to the database
     return this.mapToTaskResponseDto(task); // return the created task as a response DTO
   }
@@ -23,12 +30,20 @@ export class TaskService {
     task_id: string,
     updateTaskDto: UpdateTaskDto,
   ): Promise<TaskResponseDto> {
+    if (
+      updateTaskDto.category_id !== undefined &&
+      updateTaskDto.category_id !== null
+    ) {
+      await this.ensureCategoryOwnership(user_id, updateTaskDto.category_id);
+    }
+
+    const payload = this.normalizeTaskPayload(updateTaskDto);
     const updatedTask = await this.taskRepository.update(
       {
         user_id: user_id,
         id: task_id,
       },
-      { ...updateTaskDto },
+      payload,
     );
 
     if (updatedTask.affected === 0) {
@@ -53,9 +68,10 @@ export class TaskService {
 
   // list all tasks that belongs to a given user id
   async listTasksByUser(
-    userId: string,
+    user_id: string,
     current_page: number,
     limit: number,
+    category_id?: string,
   ): Promise<DataResponse> {
     // prepare paginated info
 
@@ -63,8 +79,15 @@ export class TaskService {
     const take = limit || 10;
     const skip = (page - 1) * take;
 
+    const whereClause: any = {
+      user_id,
+    };
+    if (category_id) {
+      whereClause.category_id = category_id;
+    }
+
     const [tasks, total_items] = await this.taskRepository.findAndCount({
-      where: { user_id: userId },
+      where: whereClause,
       order: {
         created_at: "DESC",
       },
@@ -112,8 +135,37 @@ export class TaskService {
       text: task.text,
       is_completed: task.is_completed,
       completed_at: task.completed_at,
+      end_date: task.end_date,
       created_at: task.created_at,
       updated_at: task.updated_at,
     };
+  }
+
+  private normalizeTaskPayload(taskDto: CreateTaskDto | UpdateTaskDto) {
+    if (!("end_date" in taskDto)) {
+      return { ...taskDto };
+    }
+
+    if (taskDto.end_date === undefined) {
+      return { ...taskDto };
+    }
+
+    return {
+      ...taskDto,
+      end_date: taskDto.end_date ? new Date(taskDto.end_date) : null,
+    };
+  }
+
+  private async ensureCategoryOwnership(user_id: string, category_id: string) {
+    const category = await this.categoryRepository.findOne({
+      where: {
+        id: category_id,
+        user_id,
+      },
+    });
+
+    if (!category) {
+      throw new Error("Category not found or not owned by user");
+    }
   }
 }
